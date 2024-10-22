@@ -10,6 +10,7 @@ IF "%1" EQU "setenv" (
     GOTO :EOF
 ) ELSE (
     IF DEFINED SERVER_ROOT ( 
+        ENDLOCAL
         CLS
         ECHO:
         ECHO Welcome To MyDevServer
@@ -32,7 +33,7 @@ IF "%1" EQU "setenv" (
     SET "SERVER_BIN_DIR=%~dp0bin\"
     SET "SERVER_TMP=%~dp0tmp\"
     SET "SERVER_POOL=%~dp0pool\"
-    SET "PACKAGES_PATH=%~dp0scripts\;"
+    SET "PACKAGES_PATH=%~dp0scripts\"
 
     :: Check Root Folders
     IF NOT EXIST %SERVER_BIN_DIR% MD %SERVER_BIN_DIR%
@@ -72,7 +73,6 @@ IF "%1" EQU "setenv" (
             TIMEOUT /T 20
         )
     )
-    @REM IF EXIST "%SERVER_TMP%server.test.tmp" DEL "%SERVER_TMP%server.test.tmp"
     :: Check package files
     IF EXIST "%SERVER_POOL%package.list" (
         CALL :filecheck
@@ -99,37 +99,9 @@ IF "%1" EQU "setenv" (
     IF EXIST "%SERVER_TMP%curl.test.tmp" DEL "%SERVER_TMP%curl.test.tmp"
     IF EXIST "%SERVER_TMP%tar.test.tmp" DEL "%SERVER_TMP%tar.test.tmp"
 
+    :: Define the path 
     SET "PATH=;%SERVER_ROOT%;%SERVER_BIN_DIR%;%PACKAGES_PATH%;%PATH%"
 
-GOTO :EOF
-
-:: ERROR Lavel 
-@REM :ERRORMSGG
-@REM IF %ERRORLEVEL% EQU 0 ( EXIT /B 0 ) ELSE IF %ERRORLEVEL% EQU 1 (
-@REM     ECHO Incorrect function. 
-@REM     @REM EXIT /b 1
-@REM ) ELSE IF %ERRORLEVEL% EQU 2 (
-@REM     ECHO The system cannot find the file specified.
-@REM     @REM EXIT /b 2
-@REM ) ELSE IF %ERRORLEVEL% EQU 3 (
-@REM     ECHO The system cannot find the path specified.
-@REM     @REM EXIT /B 3
-@REM ) ELSE IF %ERRORLEVEL% EQU 5 (
-@REM     echo Error level 5 encountered: Access is denied.
-@REM     @REM EXIT /B 5
-@REM ) ELSE IF %ERRORLEVEL% EQU 9009 (
-@REM     echo Error level 9009 encountered: Command not found.
-@REM     EXIT /B 9090
-@REM ) ELSE IF %ERRORLEVEL% EQU 221225495 (
-@REM     echo Error level 221225495 encountered: Custom error.
-@REM     EXIT /B 221225495
-@REM ) ELSE IF %ERRORLEVEL% EQU 3221225786 (
-@REM     echo Error level 3221225786 encountered: Application initialization failure.
-@REM     EXIT /B 3221225786
-@REM ) ELSE IF %ERRORLEVEL% EQU 3221225794 (
-@REM     echo Error level 3221225794 encountered: Application initialization failure.
-@REM     EXIT /B 3221225794
-@REM )
 GOTO :EOF
 
 :: Empty base package // New Install
