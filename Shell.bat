@@ -18,10 +18,11 @@ if defined ProgramFiles(x86) (
     )
 :shellup
     if "%~1" equ "update" (
-            echo updating Shell
-            call :environment
-        ) else (
-            exit /b
+        echo updating Shell
+        call :environment
+    ) else (
+        echo Invalid Command.
+        exit /b
         )
 goto :eof
 :IsAdmin
