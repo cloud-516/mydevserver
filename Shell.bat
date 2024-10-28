@@ -1,458 +1,508 @@
-@ECHO OFF
+@echo off
 
-:: Check to Start the Command Promot
-IF "%1" EQU "setenv" (
-    ECHO:
-    ECHO Welcome To MyDevServer
-    ECHO Setting up the environment for Server shell for Windows.
-    CALL :environment
-    ECHO --------------------------------------------------------------
-    GOTO :EOF
-) ELSE (
-    IF DEFINED SERVER_ROOT ( 
-        ENDLOCAL
-        CLS
-        ECHO:
-        ECHO Welcome To MyDevServer
-        ECHO Setting up the environment for Server shell for Windows.
-        ECHO --------------------------------------------------------------
-        @REM GOTO bindir
-    ) ELSE (
-        SETLOCAL
-        PROMPT %username%@%computername%$S$G$S$P$S$S$S$S$S$S$S$D$S$T$_#$G$S
-        START "MyDevServer for Windows" %COMSPEC% /k "%~f0" setenv
-        ENDLOCAL
-    )
-    GOTO :EOF
+:: Check if the OS is 64-bit
+if defined ProgramFiles(x86) (
+    goto :checkterminal
+) else (
+    echo This PC is running a 32-bit operating system.
+    echo We are really sorry we don't support any 32-bit operating system.
+    timeout /t 10
+    exit 1
 )
-
-:: Setting up the Environment variables
-:environment
-    :: Define Root Path
-    SET "SERVER_ROOT=%~dp0"
-    SET "SERVER_BIN_DIR=%~dp0bin\"
-    SET "SERVER_TMP=%~dp0tmp\"
-    SET "SERVER_POOL=%~dp0pool\"
-    SET "PACKAGES_PATH=%~dp0scripts\"
-
-    :: Check Root Folders
-    IF NOT EXIST %SERVER_BIN_DIR% MD %SERVER_BIN_DIR%
-    IF NOT EXIST %SERVER_TMP% MD %SERVER_TMP%
-    IF NOT EXIST %SERVER_POOL% MD %SERVER_POOL%
-    IF NOT EXIST %PACKAGES_PATH% MD %PACKAGES_PATH%
-
-    :: Check Base Dependencies
-    IF NOT EXIST "%SERVER_BIN_DIR%server.bat" (
-        ECHO The System Couldn't find Server.bat.
-        ECHO Server.bat is required.
-        TIMEOUT /T 20
-        EXIT 1
+:checkterminal
+    :: check Root Variable
+    if defined server_root (
+        goto :shellup
+    ) else (
+        goto :IsAdmin
     )
-
-    IF NOT EXIST "%SERVER_BIN_DIR%curl.exe" (
-        ECHO The System Couldn't find Curl.
-        TIMEOUT /T 20
-        EXIT 1
-    ) ELSE (
-        "%SERVER_BIN_DIR%curl.exe" -V > "%SERVER_TMP%curl.test.tmp"
-        IF %ERRORLEVEL% NEQ 0 (
-            ECHO %ERRORLEVEL%
-            ECHO There is a problem in The Curl. 
-            TIMEOUT /T 20
+:shellup
+    if "%~1" equ "update" (
+            echo updating Shell
+            call :environment
+        ) else (
+            exit /b
+        )
+goto :eof
+:IsAdmin
+    openfiles 1>nul 2>&1
+    if %errorlevel% neq 0 (
+        echo Requesting Administrator privileges...
+        goto :UACPrompt
+    ) else (
+        if "%~1" equ "setenv" (
+            echo.
+            echo Welcome To MyDevServer.
+            echo Setting up the environment for Server shell for Windows.
+            call :environment
+            echo --------------------------------------------------------------
+            echo.
+        ) else (
+            prompt %username%@%computername%$S$G$S$P$S$S$S$S$S$S$S$D$S$T$_#$G$S >nul
+            Start "MyDevServer for Windows" %COMSPEC% /k "%~f0" setenv
         )
     )
-    IF NOT EXIST "%SERVER_BIN_DIR%tar.exe" (
-        ECHO The System Couldn't find Tar.
-        TIMEOUT /T 20
-        EXIT 1
-    ) ELSE (
+goto :eof
+
+:environment
+    :: Define Root Path
+    set "SERVER_ROOT=%~dp0"
+    set "SERVER_BIN_DIR=%~dp0bin\"
+    set "SERVER_TMP=%~dp0tmp\"
+    set "SERVER_POOL=%~dp0pool\"
+    set "PACKAGES_PATH=%~dp0scripts\"
+    :: Check Root Folders
+    if not exist %SERVER_BIN_DIR% md %SERVER_BIN_DIR%
+    if not exist %SERVER_TMP% md %SERVER_TMP%
+    if not exist %SERVER_POOL% md %SERVER_POOL%
+    if not exist %PACKAGES_PATH% md %PACKAGES_PATH%
+    :: Check Base Dependencies
+    if not exist "%SERVER_BIN_DIR%server.bat" (
+        echo The System Couldn't find Server.bat.
+        echo Server.bat is required.
+        timeout /t 10
+        exit 1
+    )
+    if not exist "%SERVER_BIN_DIR%curl.exe" (
+        echo The System Couldn't find Curl.
+        timeout /t 10
+        exit 1
+    ) else (
+        "%SERVER_BIN_DIR%curl.exe" -V > "%SERVER_TMP%curl.test.tmp"
+        if %ERRORLEVEL% neq 0 (
+            echo There is a problem in The Curl. 
+            timeout /t 10
+            exit /b
+        )
+    )
+    if not exist "%SERVER_BIN_DIR%tar.exe" (
+        echo The System Couldn't find Tar.
+        timeout /t 10
+        exit 1
+    ) else (
         "%SERVER_BIN_DIR%tar.exe" --version > "%SERVER_TMP%tar.test.tmp"
-        IF %ERRORLEVEL% NEQ 0 (
-            ECHO %ERRORLEVEL%
-            ECHO There is a problem in The Tar. 
-            TIMEOUT /T 20
+        if %ERRORLEVEL% neq 0 (
+            echo There is a problem in The Tar. 
+            timeout /t 10
+            exit /b
         )
     )
     :: Check package files
-    IF EXIST "%SERVER_POOL%package.list" (
-        CALL :filecheck
-    ) ELSE (
-        CALL :emptyfile
+    if exist "%SERVER_POOL%package.list" (
+        call :filecheck
+    ) else (
+        call :emptyfile
     )
     :: include bin dir
-    IF EXIST "%SERVER_POOL%package.bin.list" (
-        FOR /F "tokens=2 delims= " %%a IN (%SERVER_POOL%package.bin.list) DO (
-            IF "%%a" NEQ "%SERVER_BIN_DIR%" (
-                FOR /F "tokens=* delims=;" %%b IN ("%PACKAGES_PATH%") DO (
-                    ECHO %%b | FINDSTR %%a > NUL
-                    IF not ERRORLEVEL 1 (
+    if exist "%SERVER_POOL%package.bin.list" (
+        for /f "tokens=2 delims= " %%a in (%SERVER_POOL%package.bin.list) do (
+            if "%%a" neq "%SERVER_BIN_DIR%" (
+                for /f "tokens=* delims=;" %%b in ("%PACKAGES_PATH%") do (
+                    echo %%b | findstr %%a > nul
+                    if not ERRORLEVEL 1 (
                         @REM echo %%a
-                    ) ELSE (
-                        SET "PACKAGES_PATH=%PACKAGES_PATH%;%%a"
+                    ) else (
+                        set "PACKAGES_PATH=%PACKAGES_PATH%;%%a"
                     )
                     
                 )
             )
         )
     )
-    If EXIST %SERVER_TMP%temp_package.list DEL %SERVER_TMP%temp_package.list
-    IF EXIST "%SERVER_TMP%curl.test.tmp" DEL "%SERVER_TMP%curl.test.tmp"
-    IF EXIST "%SERVER_TMP%tar.test.tmp" DEL "%SERVER_TMP%tar.test.tmp"
-
+    if exist %SERVER_TMP%temp_package.list del %SERVER_TMP%temp_package.list
+    if exist "%SERVER_TMP%curl.test.tmp" del "%SERVER_TMP%curl.test.tmp"
+    if exist "%SERVER_TMP%tar.test.tmp" del "%SERVER_TMP%tar.test.tmp"
+    if exist "%SERVER_TMP%temp_path.tmp" del "%SERVER_TMP%temp_path.tmp"
     :: Define the path 
-    SET "PATH=;%SERVER_ROOT%;%SERVER_BIN_DIR%;%PACKAGES_PATH%;%PATH%"
+    for %%A in ("%PATH:;=" "%") do (
+        echo %%~A >> "%SERVER_TMP%temp_path.tmp"
+    )
+    CALL :newpath
+    if exist "%SERVER_TMP%temp_path.tmp" del "%SERVER_TMP%temp_path.tmp"
+    exit /b 0
 
-GOTO :EOF
-
-:: Empty base package // New Install
-:emptyfile
-    SETLOCAL
-    ECHO [BASE] >> %SERVER_POOL%package.list
-    FOR /F "tokens=2 delims= " %%V IN ( 'findstr /i "curl" "%SERVER_TMP%curl.test.tmp"' ) DO (
-        ECHO Curl %%V >> "%SERVER_POOL%package.list"
+goto :eof
+:: Functions
+:: check for path
+:newpath
+    find /i "%SERVER_ROOT%" "%SERVER_TMP%temp_path.tmp" >nul
+    if %ERRORLEVEL% neq 0 (
+        SET "PATH=%SERVER_ROOT%;%SERVER_BIN_DIR%;%PACKAGES_PATH%;%PATH%"
+    ) else (
+        call :ncp
     )
-    FOR /F "tokens=4 delims= " %%V IN ( 'findstr /i "tar" "%SERVER_TMP%tar.test.tmp"' ) DO (
-        ECHO Tar %%V >> %SERVER_POOL%package.list
+goto :eof
+:ncp
+    find /i "%SERVER_BIN_DIR%" "%SERVER_TMP%temp_path.tmp" >nul
+    if %ERRORLEVEL% neq 0 (
+        SET "PATH=%SERVER_BIN_DIR%;%PACKAGES_PATH%;%PATH%"
+    ) else (
+        call :ncpa
     )
-    ECHO [/BASE] >> %SERVER_POOL%package.list
-    ECHO [INSTALLED] >> %SERVER_POOL%package.list
-    ECHO [/INSTALLED] >> %SERVER_POOL%package.list
-    CALL :emptyfilebin
-    ENDLOCAL
-GOTO :EOF
-:: Empty file bin
-:emptyfilebin
-    FOR /F "tokens=*" %%a IN (%SERVER_POOL%package.list) DO (
-        CALL :efbcheck %%a
+goto :eof
+:ncpa
+    for %%a in (%PACKAGES_PATH%) do (
+        find /i "%%a" "%SERVER_TMP%temp_path.tmp" >nul
+        call :ncpb %%a
     )
-GOTO :EOF
-:: Empty file path write
-:efbcheck
-    IF "%~1" NEQ "[BASE]" IF "%~1" NEQ "[/BASE]" (
-        FOR /R "%SERVER_ROOT%" %%b IN (*%~1.exe) DO (
-            echo %~1 %%~dpb >> %SERVER_POOL%package.bin.list
-        )
-    )
-GOTO :EOF
+goto :eof
+:ncpb
+    if %ERRORLEVEL% neq 0 (
+        SET "PATH=%~1;%PATH%"
+    ) 
+goto :eof
 :: Check package file // Old Install
 :filecheck
-    FINDSTR /c:"[BASE]" %SERVER_POOL%package.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        CALL :fcok
-    ) ELSE (
-        ECHO %SERVER_POOL%package.list has an error.
-        ECHO [BASE] not Found.
-        TIMEOUT /T 20 
-        EXIT
+    findstr /c:"[BASE]" %SERVER_POOL%package.list > nul
+    if %ERRORLEVEL% EQU 0 (
+        call :fcok
+    ) else (
+        echo %SERVER_POOL%package.list has an error.
+        echo [BASE] not Found.
+        timeout /t 20 
+        exit
     )
-GOTO :EOF
+goto :eof
 :: If the Package list is ok
 :fcok
-    FINDSTR /c:"[/BASE]" %SERVER_POOL%package.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        CALL :fcsia
-    ) ELSE (
-        ECHO %SERVER_POOL%package.list has an error.
-        ECHO [/BASE] not Found.
-        TIMEOUT /T 20 
-        EXIT
+    findstr /c:"[/BASE]" %SERVER_POOL%package.list > nul
+    if %ERRORLEVEL% equ 0 (
+        call :fcsia
+    ) else (
+        echo %SERVER_POOL%package.list has an error.
+        echo [/BASE] not Found.
+        timeout /t 20 
+        exit
     )
-GOTO :EOF
+goto :eof
+:: Check for [INSTALLED]
+:fcsia
+    findstr /c:"[INSTALLED]" %SERVER_POOL%package.list > nul
+    if %ERRORLEVEL% equ 0 (
+        call :fceia
+    ) else (
+        echo %SERVER_POOL%package.list has an error.
+        echo [INSTALLED] not Found.
+        timeout /t 20 
+        exit
+    )
+goto :eof
+:: Check for [INSTALLED]
+:fceia
+    findstr /c:"[/INSTALLED]" %SERVER_POOL%package.list > nul
+    if %ERRORLEVEL% equ 0 (
+        call :cln
+    ) else (
+        echo %SERVER_POOL%package.list has an error.
+        echo [/INSTALLED] not Found.
+        timeout /t 20 
+        exit
+    )
+goto :eof
 :: Check for curl
 :cln
-    FINDSTR /c:"Curl" %SERVER_POOL%package.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        CALL :clne
-    ) ELSE (
-        CALL :pec
+    findstr /c:"Curl" %SERVER_POOL%package.list > nul
+    if %ERRORLEVEL% equ 0 (
+        call :clne
+    ) else (
+        call :pec
     )
-GOTO :EOF
+goto :eof
 :: Check for tar
 :clne
-    FINDSTR /c:"Tar" %SERVER_POOL%package.list > NUL
+    findstr /c:"Tar" %SERVER_POOL%package.list > nul
     IF %ERRORLEVEL% EQU 0 (
-        CALL :clnee
+        call :clnee
     ) ELSE (
-        CALL :pec
+        call :pec
     )
-GOTO :EOF
-:: recreate pack
-:pec
-    If EXIST %SERVER_TMP%temp_package.list DEL %SERVER_TMP%temp_package.list
-    FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-            ECHO %%c | FINDSTR /c:"[BASE]" > NUL
-            IF not ERRORLEVEL 1 ( 
-                ECHO [BASE] >> %SERVER_TMP%temp_package.list
-                GOTO :donet
-            )
-            ECHO %%c >> %SERVER_TMP%temp_package.list
-    )
-    :donet
-    FOR /F "tokens=2 delims= " %%V IN ( ' findstr /i "curl" "%SERVER_TMP%curl.test.tmp"' ) DO (
-            ECHO Curl %%V >> %SERVER_TMP%temp_package.list
-    )
-    FOR /F "tokens=4 delims= " %%V IN ( ' findstr /i "tar" "%SERVER_TMP%tar.test.tmp"' ) DO (
-        ECHO Tar %%V >> %SERVER_TMP%temp_package.list
-    )
-    ECHO [/BASE] >> %SERVER_TMP%temp_package.list
-    FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-        ECHO %%c | FINDSTR /c:"[/BASE]" > NUL
-        IF not ERRORLEVEL 1 (
-            FOR /F "tokens=1 delims=:" %%a IN (' FINDSTR /N /c:"[/BASE]" %SERVER_POOL%package.list ') DO (
-                FOR /F "tokens=*" %%b IN (' MORE +%%a %SERVER_POOL%package.list ') DO (
-                    ECHO %%b >> %SERVER_TMP%temp_package.list
-                )
-            )
-            GOTO :nextt
-        )
-    )
-    :nextt
-    MOVE %SERVER_TMP%temp_package.list %SERVER_POOL%package.list > NUL
-GOTO :EOF
-:pecc
-    If EXIST %SERVER_TMP%temp_package.list DEL %SERVER_TMP%temp_package.list
-    IF "%~1" EQU "Curl" IF %~2 LSS %~4 (
-        FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-            ECHO %%c | FINDSTR /c:"%~1" > NUL
-            IF not ERRORLEVEL 1 ( 
-                GOTO :donett
-            )
-            ECHO %%c >> %SERVER_TMP%temp_package.list
-        )
-    )
-    IF "%~1" EQU "Curl" IF %~2 GTR %~5 (
-        FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-            ECHO %%c | FINDSTR /c:"[BASE]" > NUL
-            IF not ERRORLEVEL 1 ( 
-                ECHO [BASE] >> %SERVER_TMP%temp_package.list
-                CALL :donettt
-                GOTO :donettttt
-            )
-            ECHO %%c >> %SERVER_TMP%temp_package.list
-        )
-    )
-    IF "%~1" EQU "Tar" IF %~3 LSS %~4 (
-        FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-            ECHO %%c | FINDSTR /c:"%~1" > NUL
-            IF not ERRORLEVEL 1 ( 
-                GOTO :donett
-            )
-            ECHO %%c >> %SERVER_TMP%temp_package.list
-        )
-    )
-    IF "%~1" EQU "Tar" IF %~3 GTR %~5 (
-        FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-            ECHO %%c | FINDSTR /c:"[BASE]" > NUL
-            IF not ERRORLEVEL 1 ( 
-                ECHO [BASE] >> %SERVER_TMP%temp_package.list
-                CALL :donettt
-                GOTO :donettttt
-            )
-            ECHO %%c >> %SERVER_TMP%temp_package.list
-        )
-    )
-    :donett
-    IF "%~1" EQU "Curl" (
-        FOR /F "tokens=*" %%b IN (' MORE +%~2 %SERVER_POOL%package.list ') DO (
-            ECHO %%b | FINDSTR /c:"[BASE]" > NUL 
-            IF not ERRORLEVEL 1 (
-                ECHO [BASE] >> %SERVER_TMP%temp_package.list
-                CALL :donettt
-                GOTO :donetttt
-            )
-            ECHO %%b >> %SERVER_TMP%temp_package.list
-        )
-    )
-    IF "%~1" EQU "Tar" (
-        FOR /F "tokens=*" %%b IN (' MORE +%~3 %SERVER_POOL%package.list ') DO (
-            ECHO %%b | FINDSTR /c:"[BASE]" > NUL 
-            IF not ERRORLEVEL 1 (
-                ECHO [BASE] >> %SERVER_TMP%temp_package.list
-                CALL :donettt
-                GOTO :donetttt
-            )
-            ECHO %%b >> %SERVER_TMP%temp_package.list
-        )
-    )
-    
-    :donetttt
-    FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.list) DO (
-        ECHO %%c | FINDSTR /c:"[/BASE]" > NUL
-        IF not ERRORLEVEL 1 (
-            FOR /F "tokens=1 delims=:" %%a IN (' FINDSTR /N /c:"[/BASE]" %SERVER_POOL%package.list ') DO (
-                FOR /F "tokens=*" %%b IN (' MORE +%%a %SERVER_POOL%package.list ') DO (
-                    ECHO %%b >> %SERVER_TMP%temp_package.list
-                )
-            )
-            GOTO :nextt
-        )
-    )
-    :donettttt
-    IF "%~1" EQU "Curl" (
-        FOR /F "tokens=*" %%b IN (' MORE +%~5 %SERVER_POOL%package.list ') DO (
-            ECHO %%b | FINDSTR /c:"%~1" > NUL
-            IF not ERRORLEVEL 1 (
-                GOTO :donetttttt
-            )
-            ECHO %%b >> %SERVER_TMP%temp_package.list
-        )
-    )
-    IF "%~1" EQU "Tar" (
-        FOR /F "tokens=*" %%b IN (' MORE +%~5 %SERVER_POOL%package.list ') DO (
-            ECHO %%b | FINDSTR /c:"%~1" > NUL
-            IF not ERRORLEVEL 1 (
-                GOTO :donetttttt
-            )
-            ECHO %%b >> %SERVER_TMP%temp_package.list
-        )
-    )
-    :donetttttt
-    IF "%~1" EQU "Curl" (
-        FOR /F "tokens=*" %%b IN (' MORE +%~2 %SERVER_POOL%package.list ') DO (
-            ECHO %%b >> %SERVER_TMP%temp_package.list
-        )
-        GOTO :nextt
-    )
-    IF "%~1" EQU "Tar" (
-        FOR /F "tokens=*" %%b IN (' MORE +%~3 %SERVER_POOL%package.list ') DO (
-            ECHO %%b >> %SERVER_TMP%temp_package.list
-        )
-        GOTO :nextt
-    )
-
-    :nextt
-    MOVE %SERVER_TMP%temp_package.list %SERVER_POOL%package.list > NUL
-GOTO :EOF
-:donettt
-    FOR /F "tokens=2 delims= " %%V IN ( ' findstr /i "curl" "%SERVER_TMP%curl.test.tmp"' ) DO (
-            ECHO Curl %%V >> %SERVER_TMP%temp_package.list
-    )
-    FOR /F "tokens=4 delims= " %%V IN ( ' findstr /i "tar" "%SERVER_TMP%tar.test.tmp"' ) DO (
-        ECHO Tar %%V >> %SERVER_TMP%temp_package.list
-    )
-    ECHO [/BASE] >> %SERVER_TMP%temp_package.list
-GOTO :EOF
-
+goto :eof
 :: Check for base /base line number
 :clnee
-    FOR /F "tokens=1 delims=:" %%a IN ( ' FINDSTR /n /c:"[BASE]" %SERVER_POOL%package.list ' ) DO (
-        FOR /F "tokens=1 delims=:" %%b IN ( ' FINDSTR /n /c:"[/BASE]" %SERVER_POOL%package.list ' ) DO (
-            CALL :cct %%a %%b
+    for /f "tokens=1 delims=:" %%a in ( ' findstr /n /c:"[BASE]" %SERVER_POOL%package.list ' ) do (
+        for /f "tokens=1 delims=:" %%b in ( ' findstr /n /c:"[/BASE]" %SERVER_POOL%package.list ' ) do (
+            call :cct %%a %%b
         )
     )
-GOTO :EOF
+goto :eof
 :: Check Base Packages line number
 :cct
-    FOR /F "tokens=1 delims=:" %%a IN ( ' FINDSTR /n /c:"Curl" %SERVER_POOL%package.list ' ) DO (
-        FOR /F "tokens=1 delims=:" %%b IN ( ' FINDSTR /n /c:"Tar" %SERVER_POOL%package.list ' ) DO (
-            CALL :cbp %%a %%b %~1 %~2
+    for /f "tokens=1 delims=:" %%a in ( ' findstr /n /c:"Curl" %SERVER_POOL%package.list ' ) do (
+        for /f "tokens=1 delims=:" %%b in ( ' findstr /n /c:"Tar" %SERVER_POOL%package.list ' ) do (
+            call :cbp %%a %%b %~1 %~2
         )
     )
-GOTO :EOF
+goto :eof
 :: check base package exist in base area
 :cbp 
     :: for curl
-    IF %~1 GTR %~3 (
-        IF %~1 LSS %~4 (
-            GOTO cbpt
-        ) ELSE (
-            CALL :pecc "Curl" %~1 %~2 %~3 %~4
+    if %~1 gtr %~3 (
+        if %~1 lss %~4 (
+            goto cbpt
+        ) else (
+            call :pecc "Curl" %~1 %~2 %~3 %~4
         )
-    ) ELSE (
-        CALL :pecc "Curl" %~1 %~2 %~3 %~4
+    ) else (
+        call :pecc "Curl" %~1 %~2 %~3 %~4
     )
     :: for Tar 
     :cbpt
-    IF %~2 GTR %~3 (
-        IF %~2 LSS %~4 (
-            GOTO cbpe
-        ) ELSE (
-            CALL :pecc "Tar" %~1 %~2 %~3 %~4
+    if %~2 gtr %~3 (
+        if %~2 lss %~4 (
+            goto cbpe
+        ) else (
+            call :pecc "Tar" %~1 %~2 %~3 %~4
         )
-    ) ELSE (
-        CALL :pecc "Tar" %~1 %~2 %~3 %~4
+    ) else (
+        call :pecc "Tar" %~1 %~2 %~3 %~4
     )
     :cbpe
-    FINDSTR /c:"Curl" %SERVER_POOL%package.bin.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        CALL :cpbet
-    ) ELSE (
-        CALL :efbcheck "Curl"
-        GOTO :cbpe
+    findstr /c:"Curl" %SERVER_POOL%package.bin.list > nul
+    if %ERRORLEVEL% EQU 0 (
+        call :cpbet
+    ) else (
+        call :efbcheck "Curl"
+        goto :cbpe
     )
     :cbpes
-    FOR /F "tokens=1 delims= " %%a IN ( ' FINDSTR /c:"Curl" %SERVER_POOL%package.bin.list ' ) DO (
-        FOR /F "tokens=2 delims= " %%b IN ( ' FINDSTR /c:"Curl" %SERVER_POOL%package.bin.list ' ) DO (
-            CALL :cbbl %%a %%b
+    for /f "tokens=1 delims= " %%a in ( ' findstr /c:"Curl" %SERVER_POOL%package.bin.list ' ) do (
+        for /f "tokens=2 delims= " %%b in ( ' findstr /c:"Curl" %SERVER_POOL%package.bin.list ' ) do (
+            call :cbbl %%a %%b
         )
     )
-    FOR /F "tokens=1 delims= " %%a IN ( ' FINDSTR /c:"Tar" %SERVER_POOL%package.bin.list ' ) DO (
-        FOR /F "tokens=2 delims= " %%b IN ( ' FINDSTR /c:"Tar" %SERVER_POOL%package.bin.list ' ) DO (
-            CALL :cbbl %%a %%b
+    for /f "tokens=1 delims= " %%a in ( ' findstr /c:"Tar" %SERVER_POOL%package.bin.list ' ) do (
+        for /f "tokens=2 delims= " %%b in ( ' findstr /c:"Tar" %SERVER_POOL%package.bin.list ' ) do (
+            call :cbbl %%a %%b
         )
     )
-GOTO :EOF
+goto :eof
 :: check tar
 :cpbet
-    FINDSTR /c:"Tar" %SERVER_POOL%package.bin.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        GOTO :cbpes
-    ) ELSE (
-        CALL :efbcheck "Tar"
-        GOTO :cbpe
+    findstr /c:"Tar" %SERVER_POOL%package.bin.list > nul
+    if %ERRORLEVEL% equ 0 (
+        goto :cbpes
+    ) else (
+        call :efbcheck "Tar"
+        goto :cbpe
     )
-GOTO :EOF
+goto :eof
 :: Check Base Package BIn list
 :cbbl
-    If EXIST %SERVER_TMP%temp_package.bin.list DEL %SERVER_TMP%temp_package.bin.list
-    IF %~2 NEQ %SERVER_BIN_DIR% (
-        FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.bin.list) DO (
-            ECHO %%c | FINDSTR /c:"%~1" > NUL
-            IF not ERRORLEVEL 1 GOTO :done
-            ECHO %%c >> %SERVER_TMP%temp_package.bin.list
+    if exist %SERVER_TMP%temp_package.bin.list del %SERVER_TMP%temp_package.bin.list
+    if %~2 neq %SERVER_BIN_DIR% (
+        for /f "tokens=*" %%c in (%SERVER_POOL%package.bin.list) do (
+            echo %%c | findstr /c:"%~1" > nul
+            if not ERRORLEVEL 1 goto :done
+            echo %%c >> %SERVER_TMP%temp_package.bin.list
         )
-    ) ELSE (
-        GOTO :EOF
+    ) else (
+        goto :eof
     )
     :done
-    FOR /R "%SERVER_ROOT%" %%b IN (*%~1.exe) DO (
+    for /r "%SERVER_ROOT%" %%b in (*%~1.exe) do (
         echo %~1 %%~dpb >> %SERVER_TMP%temp_package.bin.list
     )
-    FOR /F "tokens=*" %%c IN (%SERVER_POOL%package.bin.list) DO (
-        ECHO %%c | FINDSTR /c:"%~1" > NUL
-        IF not ERRORLEVEL 1 (
-            FOR /F "tokens=1 delims=:" %%a IN (' FINDSTR /N /c:"%~1" %SERVER_POOL%package.bin.list ') DO (
-                FOR /F "tokens=*" %%b IN (' MORE +%%a %SERVER_POOL%package.bin.list ') DO (
-                    ECHO %%b >> %SERVER_TMP%temp_package.bin.list
+    for /f "tokens=*" %%c in (%SERVER_POOL%package.bin.list) do (
+        echo %%c | findstr /c:"%~1" > nul
+        if not ERRORLEVEL 1 (
+            for /f "tokens=1 delims=:" %%a in (' findstr /N /c:"%~1" %SERVER_POOL%package.bin.list ') do (
+                for /f "tokens=*" %%b in (' more +%%a %SERVER_POOL%package.bin.list ') do (
+                    echo %%b >> %SERVER_TMP%temp_package.bin.list
                 )
             )
-            GOTO :next
+            goto :next
         )
     )
     :next
-    MOVE %SERVER_TMP%temp_package.bin.list %SERVER_POOL%package.bin.list > NUL
-    If EXIST %SERVER_TMP%temp_package.bin.list DEL %SERVER_TMP%temp_package.bin.list
-GOTO :EOF
-:: Check for [INSTALLED]
-:fcsia
-    FINDSTR /c:"[INSTALLED]" %SERVER_POOL%package.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        CALL :fceia
-    ) ELSE (
-        ECHO %SERVER_POOL%package.list has an error.
-        ECHO [INSTALLED] not Found.
-        TIMEOUT /T 20 
-        EXIT
+    move %SERVER_TMP%temp_package.bin.list %SERVER_POOL%package.bin.list > nul
+    if exist %SERVER_TMP%temp_package.bin.list del %SERVER_TMP%temp_package.bin.list
+goto :eof
+:: recreate pack
+:pec
+    if exist %SERVER_TMP%temp_package.list del %SERVER_TMP%temp_package.list
+    for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+            echo %%c | findstr /c:"[BASE]" > nul
+            if not ERRORLEVEL 1 ( 
+                echo [BASE] >> %SERVER_TMP%temp_package.list
+                goto :donet
+            )
+            echo %%c >> %SERVER_TMP%temp_package.list
     )
-:: Check for [INSTALLED]
-:fceia
-    FINDSTR /c:"[/INSTALLED]" %SERVER_POOL%package.list > NUL
-    IF %ERRORLEVEL% EQU 0 (
-        CALL :cln
-    ) ELSE (
-        ECHO %SERVER_POOL%package.list has an error.
-        ECHO [/INSTALLED] not Found.
-        TIMEOUT /T 20 
-        EXIT
+    :donet
+    for /f "tokens=2 delims= " %%V in ( ' findstr /i "curl" "%SERVER_TMP%curl.test.tmp"' ) do (
+            echo Curl %%V >> %SERVER_TMP%temp_package.list
     )
-GOTO :EOF
+    for /f "tokens=4 delims= " %%V in ( ' findstr /i "tar" "%SERVER_TMP%tar.test.tmp"' ) do (
+        echo Tar %%V >> %SERVER_TMP%temp_package.list
+    )
+    echo [/BASE] >> %SERVER_TMP%temp_package.list
+    for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+        echo %%c | findstr /c:"[/BASE]" > nul
+        if not ERRORLEVEL 1 (
+            for /f "tokens=1 delims=:" %%a in (' findstr /n /c:"[/BASE]" %SERVER_POOL%package.list ') do (
+                for /f "tokens=*" %%b in (' more +%%a %SERVER_POOL%package.list ') do (
+                    echo %%b >> %SERVER_TMP%temp_package.list
+                )
+            )
+            goto :nextt
+        )
+    )
+    :nextt
+    move %SERVER_TMP%temp_package.list %SERVER_POOL%package.list > nul
+goto :eof
+:pecc
+    if exist %SERVER_TMP%temp_package.list del %SERVER_TMP%temp_package.list
+    if "%~1" equ "Curl" if %~2 lss %~4 (
+        for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+            echo %%c | findstr /c:"%~1" > nul
+            if not ERRORLEVEL 1 ( 
+                goto :donett
+            )
+            echo %%c >> %SERVER_TMP%temp_package.list
+        )
+    )
+    if "%~1" equ "Curl" if %~2 gtr %~5 (
+        for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+            echo %%c | findstr /c:"[BASE]" > nul
+            if not ERRORLEVEL 1 ( 
+                echo [BASE] >> %SERVER_TMP%temp_package.list
+                call :donettt
+                goto :donettttt
+            )
+            echo %%c >> %SERVER_TMP%temp_package.list
+        )
+    )
+    if "%~1" equ "Tar" if %~3 LSS %~4 (
+        for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+            echo %%c | findstr /c:"%~1" > nul
+            if not ERRORLEVEL 1 ( 
+                goto :donett
+            )
+            echo %%c >> %SERVER_TMP%temp_package.list
+        )
+    )
+    if "%~1" equ "Tar" if %~3 gtr %~5 (
+        for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+            echo %%c | findstr /c:"[BASE]" > nul
+            if not ERRORLEVEL 1 ( 
+                echo [BASE] >> %SERVER_TMP%temp_package.list
+                call :donettt
+                goto :donettttt
+            )
+            echo %%c >> %SERVER_TMP%temp_package.list
+        )
+    )
+    :donett
+    if "%~1" equ "Curl" (
+        for /f "tokens=*" %%b in (' more +%~2 %SERVER_POOL%package.list ') do (
+            echo %%b | findstr /c:"[BASE]" > nul 
+            if not ERRORLEVEL 1 (
+                ECHO [BASE] >> %SERVER_TMP%temp_package.list
+                call :donettt
+                goto :donetttt
+            )
+            echo %%b >> %SERVER_TMP%temp_package.list
+        )
+    )
+    if "%~1" equ "Tar" (
+        for /f "tokens=*" %%b in (' more +%~3 %SERVER_POOL%package.list ') do (
+            echo %%b | findstr /c:"[BASE]" > nul 
+            if not ERRORLEVEL 1 (
+                echo [BASE] >> %SERVER_TMP%temp_package.list
+                call :donettt
+                goto :donetttt
+            )
+            ECHO %%b >> %SERVER_TMP%temp_package.list
+        )
+    )
+    :donetttt
+    for /f "tokens=*" %%c in (%SERVER_POOL%package.list) do (
+        echo %%c | findstr /c:"[/BASE]" > nul
+        if not ERRORLEVEL 1 (
+            for /f "tokens=1 delims=:" %%a in (' findstr /N /c:"[/BASE]" %SERVER_POOL%package.list ') do (
+                for /f "tokens=*" %%b in (' more +%%a %SERVER_POOL%package.list ') do (
+                    echo %%b >> %SERVER_TMP%temp_package.list
+                )
+            )
+            goto :nextt
+        )
+    )
+    :donettttt
+    if "%~1" equ "Curl" (
+        for /f "tokens=*" %%b in (' more +%~5 %SERVER_POOL%package.list ') do (
+            echo %%b | findstr /c:"%~1" > nul
+            if not ERRORLEVEL 1 (
+                goto :donetttttt
+            )
+            echo %%b >> %SERVER_TMP%temp_package.list
+        )
+    )
+    if "%~1" equ "Tar" (
+        for /f "tokens=*" %%b in (' more +%~5 %SERVER_POOL%package.list ') do (
+            echo %%b | findstr /c:"%~1" > nul
+            if not ERRORLEVEL 1 (
+                goto :donetttttt
+            )
+            echo %%b >> %SERVER_TMP%temp_package.list
+        )
+    )
+    :donetttttt
+    if "%~1" equ "Curl" (
+        for /f "tokens=*" %%b in (' more +%~2 %SERVER_POOL%package.list ') do (
+            echo %%b >> %SERVER_TMP%temp_package.list
+        )
+        goto :nextt
+    )
+    if "%~1" equ "Tar" (
+        for /f "tokens=*" %%b in (' more +%~3 %SERVER_POOL%package.list ') do (
+            echo %%b >> %SERVER_TMP%temp_package.list
+        )
+        goto :nextt
+    )
+    :nextt
+    move %SERVER_TMP%temp_package.list %SERVER_POOL%package.list > nul
+goto :eof
+:donettt
+    for /f "tokens=2 delims= " %%V in ( ' findstr /i "curl" "%SERVER_TMP%curl.test.tmp"' ) do (
+            echo Curl %%V >> %SERVER_TMP%temp_package.list
+    )
+    for /f "tokens=4 delims= " %%V in ( ' findstr /i "tar" "%SERVER_TMP%tar.test.tmp"' ) do (
+        echo Tar %%V >> %SERVER_TMP%temp_package.list
+    )
+    echo [/BASE] >> %SERVER_TMP%temp_package.list
+goto :eof
+:emptyfile
+    :: If New Install
+    echo [BASE] >> %SERVER_POOL%package.list
+    for /f "tokens=2 delims= " %%v in ( 'findstr /i "curl" "%SERVER_TMP%curl.test.tmp"' ) do (
+        echo Curl %%v >> "%SERVER_POOL%package.list"
+    )
+    for /f "tokens=4 delims= " %%v in ( 'findstr /i "tar" "%SERVER_TMP%tar.test.tmp"' ) do (
+        echo Tar %%v >> %SERVER_POOL%package.list
+    )
+    echo [/BASE] >> %SERVER_POOL%package.list
+    echo [INSTALLED] >> %SERVER_POOL%package.list
+    echo [/INSTALLED] >> %SERVER_POOL%package.list
+    call :emptyfilebin
+goto :eof
+:: Empty file bin
+:emptyfilebin
+    for /f "tokens=*" %%a in (%SERVER_POOL%package.list) do (
+        call :efbcheck %%a
+    )
+goto :eof
+:: Empty file path write
+:efbcheck
+    if "%~1" neq "[BASE]" if "%~1" neq "[/BASE]" (
+        for /r "%SERVER_ROOT%" %%b in (*%~1.exe) do (
+            echo %~1 %%~dpb >> %SERVER_POOL%package.bin.list
+        )
+    )
+goto :eof
+:UACPrompt
+    :: Prompt for Administrator privileges using VBScript
+    echo Set objShell = CreateObject("Shell.Application") > "%temp%\GetAdmin.vbs"
+    echo objShell.ShellExecute "%COMSPEC%", "/c cd /d %cd% && %~f0 ", "", "runas", 1 >> "%temp%\GetAdmin.vbs"
+    cscript "%temp%\GetAdmin.vbs"
+    del "%temp%\GetAdmin.vbs"
+    exit /b

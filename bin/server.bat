@@ -55,7 +55,7 @@ if "%1" equ "clean" (
 ) else if "%1" equ "version" (
     call :version
 ) else if "%1" equ "update" (
-    call :wcn
+    call :update
 ) else if "%1" equ "upgrade" (
     call :wcn
 ) else (
@@ -75,6 +75,12 @@ goto :eof
     echo Please kindly wait for next release.
 goto :eof
 
+:: Update the package information
+:update
+    echo Updating package list...
+    
+    @REM dir /b /ad %POOL_DIR% > %TMP_DIR%\packages.txt
+goto :eof
 :: Version Information
 :version
     echo ----------------------------------------------
@@ -178,8 +184,8 @@ goto :eof
             echo ----------------------------------------------
             echo MyDevServer Package Manager Help Menu
             echo:
-            echo Usage: server stop control
-            echo        server stop [package_name] 
+            echo Usage: server stop control           - Stop the control Panel
+            echo        server stop [package_name]    - Stop the package
             echo:
             echo This command used to Stop MyDevServer for local web base Control Panel or a specific package. The [package_name] should be replace with the desired package name.
         ) else if "%~1" equ "version" (
@@ -200,8 +206,9 @@ goto :eof
             echo ----------------------------------------------
             echo MyDevServer Package Manager Help Menu
             echo:
-            echo Usage: server upgrade all
-            echo        server upgrade [package_name] 
+            echo Usage: server upgrade all              - Upgrade all packages
+            echo        server upgrade installed        - Show the list of packages can be upgrade
+            echo        server upgrade [package_name]   - Upgrade specific package  
             echo:
             echo This command used to Update an existing package or Upgrade all packages. The [package_name] should be replace with the desired package name.
         ) else (
